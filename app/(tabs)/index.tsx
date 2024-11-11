@@ -1,70 +1,257 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, {useRef} from "react";
+import {StyleSheet, Text, TouchableOpacity, View, Image} from "react-native";
+import Swiper from "react-native-deck-swiper";
+import {FontAwesome5} from "@expo/vector-icons";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const initialData = [
+    {title: "Greenland", image: require("../../assets/images/cover-1.jpg")},
+    {title: "Tout là-haut", image: require("../../assets/images/cover-2.jpg")},
+    {title: "Creator", image: require("../../assets/images/cover-3.jpg")},
+    {title: "Loup garou", image: require("../../assets/images/cover-4.jpg")},
+];
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
-}
+const SwiperComponent = () => {
+    const swiperRef = useRef<Swiper<{ title: string; image: any }> | null>(null);
+
+    return (
+        <View style={styles.container}>
+            <Swiper
+                ref={swiperRef}
+                infinite
+                cards={initialData}
+                renderCard={(card) => (
+                    <View style={styles.card}>
+                        <Image source={card.image} style={styles.image}/>
+                        <View style={styles.textContainer}>
+                            <Text style={styles.text}>{card.title}</Text>
+                        </View>
+                    </View>
+                )}
+                onSwiped={(cardIndex) => {
+                    console.log(`Swiped card index: ${cardIndex}`);
+                }}
+                onSwipedAll={() => {
+                    console.log("All cards swiped!");
+                }}
+                cardIndex={0}
+                backgroundColor={"#f0f0f0"}
+                stackSize={3}
+                stackScale={10}
+                stackSeparation={15}
+                disableTopSwipe={false}
+                disableBottomSwipe={false}
+                disableLeftSwipe={false}
+                disableRightSwipe={false}
+                overlayLabels={{
+                    left: {
+                        title: "Pass 😑",
+                        style: {
+                            label: styles.overlayLabelLeft,
+                            wrapper: {
+                                flexDirection: "column",
+                                alignItems: "flex-end",
+                                justifyContent: "flex-start",
+                                marginTop: 30,
+                                marginLeft: -30,
+                            },
+                        },
+                    },
+                    right: {
+                        title: "Watch 👀",
+                        style: {
+                            label: styles.overlayLabelRight,
+                            wrapper: {
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                                justifyContent: "flex-start",
+                                marginTop: 30,
+                                marginLeft: 30,
+                            },
+                        },
+                    },
+                    top: {
+                        title: "Loved it 👍️",
+                        style: {
+                            label: styles.overlayLabelTop,
+                            wrapper: {
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "flex-end",
+                                height: "75%",
+                            },
+                        },
+                    },
+                    bottom: {
+                        title: "Didn’t like it 👎",
+                        style: {
+                            label: styles.overlayLabelBottom,
+                            wrapper: {
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "flex-start",
+                                paddingTop: 30,
+                            },
+                        },
+                    },
+                }}
+            />
+
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                    style={[styles.button, styles.lovedButton]}
+                    onPress={() => {
+                        if (swiperRef.current) {
+                            swiperRef.current.swipeTop();
+                        }
+                    }}
+                >
+                    <FontAwesome5 name="thumbs-up" size={24} color="#fff"/>
+                    <Text style={styles.buttonText}>Loved it</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.button, styles.dislikedButton]}
+                    onPress={() => {
+                        if (swiperRef.current) {
+                            swiperRef.current.swipeBottom();
+                        }
+                    }}
+                >
+                    <FontAwesome5 name="thumbs-down" size={24} color="#fff"/>
+                    <Text style={styles.buttonText}>Didn’t like it</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.button, styles.interestedButton]}
+                    onPress={() => {
+                        if (swiperRef.current) {
+                            swiperRef.current.swipeRight();
+                        }
+                    }}
+                >
+                    <FontAwesome5 name="eye" size={24} color="#fff"/>
+                    <Text style={styles.buttonText}>Watch</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.button, styles.notInterestedButton]}
+                    onPress={() => {
+                        if (swiperRef.current) {
+                            swiperRef.current.swipeLeft();
+                        }
+                    }}
+                >
+                    <FontAwesome5 name="ban" size={24} color="#fff"/>
+                    <Text style={styles.buttonText}>Pass</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+};
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: "#f0f0f0",
+    },
+    card: {
+        flex: 0.8,
+        borderRadius: 15,
+        shadowColor: "#000",
+        shadowOffset: {width: 0, height: 10},
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+    },
+    image: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 15,
+    },
+    textContainer: {
+        position: "absolute",
+        bottom: 0,
+        width: "100%",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        padding: 12,
+        borderBottomLeftRadius: 15,
+        borderBottomRightRadius: 15,
+    },
+    text: {
+        fontSize: 20,
+        fontWeight: "600",
+        color: "#fff",
+        textAlign: "center",
+        alignSelf: "center",
+    },
+    buttonContainer: {
+        flexDirection: "row",
+        justifyContent: "space-around",
+        padding: 15,
+        backgroundColor: "#fff",
+        position: "absolute",
+        bottom: 0,
+        width: "100%",
+    },
+    button: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 10,
+        borderRadius: 10,
+        flex: 1,
+        marginHorizontal: 5,
+    },
+    lovedButton: {
+        backgroundColor: "#4CAF50",
+    },
+    dislikedButton: {
+        backgroundColor: "#F44336",
+    },
+    interestedButton: {
+        backgroundColor: "#2196F3",
+    },
+    notInterestedButton: {
+        backgroundColor: "#9E9E9E",
+    },
+    buttonText: {
+        color: "#fff",
+        fontSize: 14,
+        marginTop: 5,
+        fontWeight: "bold",
+        textAlign: "center",
+    },
+    overlayLabelLeft: {
+        backgroundColor: "rgba(158, 158, 158, 0.8)",
+        color: "white",
+        fontSize: 20,
+        fontWeight: "600",
+        padding: 8,
+        borderRadius: 10,
+    },
+    overlayLabelRight: {
+        backgroundColor: "rgba(33, 150, 243, 0.8)",
+        color: "white",
+        fontSize: 20,
+        fontWeight: "600",
+        padding: 8,
+        borderRadius: 10,
+    },
+    overlayLabelTop: {
+        backgroundColor: "rgba(76, 175, 80, 0.8)",
+        color: "white",
+        fontSize: 20,
+        fontWeight: "600",
+        padding: 8,
+        borderRadius: 10,
+    },
+    overlayLabelBottom: {
+        backgroundColor: "rgba(244, 67, 54, 0.8)",
+        color: "white",
+        fontSize: 20,
+        fontWeight: "600",
+        padding: 8,
+        borderRadius: 10,
+    },
 });
+
+export default SwiperComponent;

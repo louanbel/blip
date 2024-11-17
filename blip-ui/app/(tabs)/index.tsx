@@ -12,10 +12,10 @@ export default function SwiperComponent() {
     async function fetchMovies() {
         try {
             const response = await fetch(
-                'https://api.themoviedb.org/3/discover/movie?include_adult=false&language=en-US&page=1&sort_by=popularity.desc',
+                `${process.env.EXPO_PUBLIC_TMDB_URL}/3/discover/movie?include_adult=false&language=en-US&page=1&sort_by=popularity.desc`,
                 {
                     headers: {
-                        Authorization: "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIzOGIyMTQ1ZTkyMDVlN2I4ZmI0ODk5OGIxZDlmYjFlNyIsIm5iZiI6MTczMTM5NjI2Ni44NDM2NTgsInN1YiI6IjY3MzMwMWMxM2E4ZWEyYTg3OWQ2ZTNkOCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.1xim3IPXiO37eB5uOavH6IdeOJCdGM2OwonK9VEHET4"
+                        Authorization: `Bearer ${process.env.EXPO_PUBLIC_TMDB_BEARER_TOKEN}`,
                     }
                 }
             );
@@ -31,7 +31,7 @@ export default function SwiperComponent() {
 
     async function addMovieOpinion(movie_id: number, opinion: Opinion) {
         try {
-            const response = await fetch('http://127.0.0.1:5000/user/1/movie', {
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/user/1/movie`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

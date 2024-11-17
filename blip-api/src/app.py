@@ -8,6 +8,7 @@ from src.database.models import User, UserMovie
 from flask_migrate import Migrate
 import os
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 load_dotenv()
 
@@ -66,21 +67,21 @@ def add_user_movie(user_id):
     movie_id = data['movie_id']
     opinion = data['opinion']
 
-    with app.app_context():
-        user = User.query.get(user_id)
+    with Session(db.engine) as session:
+        user = session.get(User, user_id)
         if user is None:
             return jsonify({'message': 'User not found'}), 404
 
         user_movie = UserMovie.query.filter_by(user_id=user_id, movie_id=movie_id).first()
         if user_movie is not None:
-            return jsonify({'message': 'Movie already added to user'}), 400
+            return jsonify({'message': 'Movie already added to user'}), 200
 
         user_movie = UserMovie(user_id=user_id, movie_id=movie_id, opinion=Opinion(opinion))
         db.session.add(user_movie)
         db.session.commit()
 
-    return jsonify({'message': 'Movie added to user'}), 200
 
+    return jsonify({'message': 'Movie added to user'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

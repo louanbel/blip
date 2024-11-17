@@ -10,6 +10,7 @@
 .idea/
 .vscode/
 *.iml
+*.pyc
 
 # Frontend: blip-ui
 blip-ui/node_modules
@@ -34,7 +35,7 @@ blip-ui/yarn-error.log*
 blip-ui/tsconfig.tsbuildinfo
 
 # Backend: blip-api
-blip-api/__pycache__/
+blip-api/**/__pycache__/
 blip-api/*.py[cod]
 blip-api/*.pyo
 blip-api/*.egg-info/

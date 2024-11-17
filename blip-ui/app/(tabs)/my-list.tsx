@@ -19,7 +19,7 @@ export default function MyList() {
         try {
             setLoading(true);
             const response = await fetch(
-                `http://127.0.0.1:5000/user/1/movies?opinion=${Opinion.WANT_TO_WATCH}`
+                `${process.env.EXPO_PUBLIC_API_URL}/user/1/movies?opinion=${Opinion.WANT_TO_WATCH}`
             );
             const data = await response.json();
             const moviesList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
@@ -125,11 +125,11 @@ const styles = StyleSheet.create({
         height: 150,
     },
     rateContainer: {
-        zIndex: 1, // Pour afficher le texte au-dessus de l'image
+        zIndex: 1,
         position: "absolute",
-        top: 5, // Positionné en haut
-        alignSelf: "center", // Centré horizontalement
-        backgroundColor: "rgba(0, 0, 0, 0.5)", // Fond semi-transparent
+        top: 5,
+        alignSelf: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
         borderRadius: 15,
         paddingHorizontal: 10,
         paddingVertical: 5,

@@ -6,14 +6,16 @@ import {
     FlatList,
     Image,
     Dimensions,
-    ActivityIndicator,
+    ActivityIndicator, Pressable, SafeAreaView,
 } from "react-native";
 import {useFocusEffect} from "@react-navigation/native";
 import {format_movie_from_api, Movie, Opinion} from "@/models/Movie";
+import {useRouter} from "expo-router";
 
 export default function MyList() {
     const [movies, setMovies] = useState<Movie[]>([]);
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
     const fetchMovies = async () => {
         try {
@@ -42,29 +44,40 @@ export default function MyList() {
         }, [])
     );
 
-    const renderMovie = ({ item }: { item: Movie }) => (
-        <View style={styles.column}>
-            <View style={styles.card}>
-                <View style={styles.rateContainer}>
-                    <Text style={styles.rateText}>{item.rate}/10</Text>
-                </View>
-                <Image
-                    source={{ uri: `${item.image}` }}
-                    style={styles.poster}
-                    resizeMode="cover"
-                />
-                <Text style={styles.title} numberOfLines={1}>
-                    {item.title}
-                </Text>
+    const renderMovie = ({item}: { item: Movie }) => {
+        return (
+            <View style={styles.column}>
+                <Pressable style={styles.card} onPress={() => router.push({
+                    pathname: `/pages/movies/[id]`,
+                    params: {
+                        id: item.id,
+                        title: item.title,
+                        image: item.image,
+                        rate: item.rate,
+                        overview: item.overview,
+                    },
+                })}>
+                    <View style={styles.rateContainer}>
+                        <Text style={styles.rateText}>{item.rate}/10</Text>
+                    </View>
+                    <Image
+                        source={{uri: `${item.image}`}}
+                        style={styles.poster}
+                        resizeMode="cover"
+                    />
+                    <Text style={styles.title} numberOfLines={1}>
+                        {item.title}
+                    </Text>
+                </Pressable>
             </View>
-        </View>
-    );
+        );
+    };
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <Text style={styles.pageTitle}>Watch List</Text>
             {loading && movies.length === 0 && (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#0000ff" />
+                    <ActivityIndicator size="large" color="#0000ff"/>
                     <Text>Loading...</Text>
                 </View>
             )}
@@ -77,11 +90,11 @@ export default function MyList() {
                 contentContainerStyle={styles.list}
                 ListFooterComponent={
                     loading && movies.length > 0 ? (
-                        <ActivityIndicator size="small" color="#0000ff" />
+                        <ActivityIndicator size="small" color="#0000ff"/>
                     ) : null
                 }
             />
-        </View>
+        </SafeAreaView>
     );
 }
 const styles = StyleSheet.create({

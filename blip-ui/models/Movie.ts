@@ -11,16 +11,19 @@ export interface Movie {
     image: string,
     date: string,
     rate: number,
-    overview: string
+    overview: string,
+    trailer_key: string,
 }
 
 export function format_movie_from_api(movie: any): Movie {
+    console.log(movie);
     return {
         id: movie.id,
         title: movie.title,
-        image: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
-        date: movie.release_date.split("-")[0],
-        rate: parseFloat(movie.vote_average.toFixed(1)),
-        overview: movie.overview
+        image: movie.image,
+        date: movie.date,
+        rate: parseFloat(movie.rate.toFixed(1)),
+        overview: movie.overview,
+        trailer_key: movie.trailer_key,
     }
 }

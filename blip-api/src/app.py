@@ -10,6 +10,8 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
+from src.utils import extract_trailer_key
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -37,6 +39,45 @@ def create_user():
 
     return jsonify({'message': 'User created'}), 200
 
+@app.route('/discover-movies', methods=['GET'])
+def discover_movies():
+    base_url = f"{os.getenv('TMDB_URL')}/3/discover/movie?include_adult=false&language=en-US&page=1&sort_by=popularity.desc"
+    response = requests.get(base_url,
+                            headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
+    if response.status_code == 200:
+        response_json = response.json()
+        movies = response_json['results']
+        return jsonify([{
+            "id": movie['id'],
+            "title": movie['title'],
+            "image": f"https://image.tmdb.org/t/p/w500{movie['poster_path']}",
+            "date": movie['release_date'].split('-')[0],
+            "rate": movie['vote_average'],
+            "overview": movie['overview']
+        } for movie in movies]), 200
+    return jsonify({'message': 'Movies not found'}), 404
+
+@app.route('/movie/<int:movie_id>', methods=['GET'])
+def get_movie(movie_id):
+    base_url = f"{os.getenv('TMDB_URL')}/3/movie/"
+    movie_response = requests.get(f'{base_url}{movie_id}',
+                                  headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
+    movie_response_json = movie_response.json()
+    trailer_response = requests.get(f'{base_url}{movie_id}/videos',
+                                    headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
+
+    if trailer_response.status_code == 200 and movie_response.status_code == 200:
+        return jsonify({
+            "id": movie_response_json['id'],
+            "title": movie_response_json['title'],
+            "image": f"https://image.tmdb.org/t/p/w500{movie_response_json['poster_path']}",
+            "date": movie_response_json['release_date'].split('-')[0],
+            "rate": movie_response_json['vote_average'],
+            "overview": movie_response_json['overview'],
+            "trailer_key": extract_trailer_key(trailer_response)
+        }), 200
+    return jsonify({'message': 'Movie not found'}), 404
+
 
 @app.route('/user/<int:user_id>/movies', methods=['GET'])
 def get_user_movies(user_id):
@@ -53,11 +94,21 @@ def get_user_movies(user_id):
             movie_id = user_movie.movie_id
             response = requests.get(f'{base_url}{movie_id}',
                                     headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
+            trailer_response = requests.get(f'{base_url}{movie_id}/videos',
+                                            headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
             if response.status_code == 200:
-                detailed_movies.append(response.json())
+                response_json = response.json()
+                detailed_movies.append({
+                    "id": response_json['id'],
+                    "title": response_json['title'],
+                    "image": f"https://image.tmdb.org/t/p/w500{response_json['poster_path']}",
+                    "date": response_json['release_date'].split('-')[0],
+                    "rate": response_json['vote_average'],
+                    "overview": response_json['overview'],
+                    "trailer_key": extract_trailer_key(trailer_response)
+                })
             else:
                 print("Could not fetch movie details of movie_id: ", movie_id)
-            print(detailed_movies)
     return jsonify(detailed_movies), 200
 
 
@@ -80,8 +131,8 @@ def add_user_movie(user_id):
         db.session.add(user_movie)
         db.session.commit()
 
-
     return jsonify({'message': 'Movie added to user'}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)

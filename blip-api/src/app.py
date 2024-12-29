@@ -39,23 +39,69 @@ def create_user():
 
     return jsonify({'message': 'User created'}), 200
 
+
 @app.route('/discover-movies', methods=['GET'])
 def discover_movies():
+    platforms_param = request.args.get('platforms', '')
+    platforms = [platform.strip() for platform in platforms_param.split(',')]
+    locale = request.args.get('locale', 'FR')
+
     base_url = f"{os.getenv('TMDB_URL')}/3/discover/movie?include_adult=false&language=en-US&page=1&sort_by=popularity.desc"
     response = requests.get(base_url,
                             headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
     if response.status_code == 200:
         response_json = response.json()
         movies = response_json['results']
-        return jsonify([{
-            "id": movie['id'],
-            "title": movie['title'],
-            "image": f"https://image.tmdb.org/t/p/w500{movie['poster_path']}",
-            "date": movie['release_date'].split('-')[0],
-            "rate": movie['vote_average'],
-            "overview": movie['overview']
-        } for movie in movies]), 200
+
+        enriched_movies = []
+        for movie in movies:
+            movie_details_url = f"{os.getenv('TMDB_URL')}/3/movie/{movie['id']}"
+            details_response = requests.get(movie_details_url, headers={
+                'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"
+            })
+
+            watch_providers_url = f"{os.getenv('TMDB_URL')}/3/movie/{movie["id"]}/watch/providers"
+            watch_response = requests.get(watch_providers_url, headers={
+                'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"
+            })
+
+            if details_response.status_code == 200 and watch_response.status_code == 200:
+                details = details_response.json()
+                watch_providers = watch_response.json().get('results', {})
+                provider_data = watch_providers.get(locale, {})
+                if 'flatrate' in provider_data:
+                    available_platforms = [
+                        provider['provider_name'] for provider in provider_data['flatrate']
+                    ]
+                    if any(platform in provider for provider in available_platforms for platform in platforms):
+                        enriched_movies.append({
+                            "id": movie['id'],
+                            "title": movie['title'],
+                            "image": f"https://image.tmdb.org/t/p/w500{movie['poster_path']}",
+                            "date": movie['release_date'].split('-')[0],
+                            "rate": movie['vote_average'],
+                            "overview": movie['overview'],
+                            "trailer_key": extract_trailer_key(
+                                requests.get(f"{os.getenv('TMDB_URL')}/3/movie/{movie['id']}/videos",
+                                             headers={
+                                                 'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})),
+                            "runtime": details.get('runtime', 'N/A'),
+                            "genres": [genre['name'] for genre in details.get('genres', [])],
+                            "director": next(
+                                (crew['name'] for crew in details.get('credits', {}).get('crew', []) if
+                                 crew['job'] == 'Director'),
+                                'N/A'
+                            ),
+                            "availability": {
+                                "country": locale,
+                                "platforms": available_platforms
+                            }
+                        })
+
+        return jsonify(enriched_movies), 200
+
     return jsonify({'message': 'Movies not found'}), 404
+
 
 @app.route('/movie/<int:movie_id>', methods=['GET'])
 def get_movie(movie_id):
@@ -65,8 +111,13 @@ def get_movie(movie_id):
     movie_response_json = movie_response.json()
     trailer_response = requests.get(f'{base_url}{movie_id}/videos',
                                     headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
+    movie_details_url = f"{os.getenv('TMDB_URL')}/3/movie/{movie_id}"
+    details_response = requests.get(movie_details_url, headers={
+        'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"
+    })
 
-    if trailer_response.status_code == 200 and movie_response.status_code == 200:
+    if trailer_response.status_code == 200 and movie_response.status_code == 200 and details_response.status_code == 200:
+        details = details_response.json()
         return jsonify({
             "id": movie_response_json['id'],
             "title": movie_response_json['title'],
@@ -74,7 +125,13 @@ def get_movie(movie_id):
             "date": movie_response_json['release_date'].split('-')[0],
             "rate": movie_response_json['vote_average'],
             "overview": movie_response_json['overview'],
-            "trailer_key": extract_trailer_key(trailer_response)
+            "trailer_key": extract_trailer_key(trailer_response),
+            "runtime": details.get('runtime', 'N/A'),
+            "genres": [genre['name'] for genre in details.get('genres', [])],
+            "director": next(
+                (crew['name'] for crew in details.get('credits', {}).get('crew', []) if crew['job'] == 'Director'),
+                'N/A'
+            )
         }), 200
     return jsonify({'message': 'Movie not found'}), 404
 
@@ -96,8 +153,14 @@ def get_user_movies(user_id):
                                     headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
             trailer_response = requests.get(f'{base_url}{movie_id}/videos',
                                             headers={'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"})
-            if response.status_code == 200:
+            movie_details_url = f"{os.getenv('TMDB_URL')}/3/movie/{movie_id}"
+            details_response = requests.get(movie_details_url, headers={
+                'Authorization': f"Bearer {os.getenv('TMDB_BEARER_TOKEN')}"
+            })
+
+            if response.status_code == 200 and trailer_response.status_code == 200 and details_response.status_code == 200:
                 response_json = response.json()
+                details = details_response.json()
                 detailed_movies.append({
                     "id": response_json['id'],
                     "title": response_json['title'],
@@ -105,7 +168,14 @@ def get_user_movies(user_id):
                     "date": response_json['release_date'].split('-')[0],
                     "rate": response_json['vote_average'],
                     "overview": response_json['overview'],
-                    "trailer_key": extract_trailer_key(trailer_response)
+                    "trailer_key": extract_trailer_key(trailer_response),
+                    "runtime": details.get('runtime', 'N/A'),
+                    "genres": [genre['name'] for genre in details.get('genres', [])],
+                    "director": next(
+                        (crew['name'] for crew in details.get('credits', {}).get('crew', []) if
+                         crew['job'] == 'Director'),
+                        'N/A'
+                    )
                 })
             else:
                 print("Could not fetch movie details of movie_id: ", movie_id)

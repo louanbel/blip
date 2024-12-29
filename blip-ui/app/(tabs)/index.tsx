@@ -21,16 +21,17 @@ export default function TinderLikeApp() {
     const swiperRef = useRef<Swiper<Movie> | null>(null);
     const [data, setData] = useState<Movie[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
+    const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([Platform.DISNEY_PLUS, Platform.NETFLIX, Platform.PRIME_VIDEO, Platform.HBO_MAX, Platform.PARAMOUNT_PLUS]);
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [currentStoryIndex, setCurrentStoryIndex] = useState<number>(0);
     const [cardIndex, setCardIndex] = useState(0);
     const [trailerModalVisible, setTrailerModalVisible] = useState(false);
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+    const [tempSelectedPlatforms, setTempSelectedPlatforms] = useState<Platform[]>(selectedPlatforms);
 
     async function fetchMovies() {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/discover-movies`);
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/discover-movies?platforms=${selectedPlatforms.join(",").replace('+', '').replace(" ", "+")}`);
             const data = await response.json();
             const moviesList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
             setData(moviesList);
@@ -55,6 +56,14 @@ export default function TinderLikeApp() {
         }
     }
 
+    function toggleTempPlatformSelection(platform: Platform) {
+        if (tempSelectedPlatforms.includes(platform)) {
+            setTempSelectedPlatforms(tempSelectedPlatforms.filter((p) => p !== platform));
+        } else {
+            setTempSelectedPlatforms([...tempSelectedPlatforms, platform]);
+        }
+    }
+
     function togglePlatformSelection(platform: Platform) {
         if (selectedPlatforms.includes(platform)) {
             setSelectedPlatforms(selectedPlatforms.filter((p) => p !== platform));
@@ -66,6 +75,12 @@ export default function TinderLikeApp() {
     useEffect(() => {
         fetchMovies();
     }, []);
+
+    useEffect(() => {
+        console.log("Selected platforms:", selectedPlatforms);
+        setIsLoading(true);
+        fetchMovies();
+    }, [selectedPlatforms]);
 
     if (isLoading) {
         return (
@@ -133,133 +148,141 @@ export default function TinderLikeApp() {
 
             {/* Swiper */}
             <View style={styles.swiperContainer}>
-                <Swiper
-                    infinite
-                    key={`${currentStoryIndex}-${data.length}`}
-                    cardIndex={cardIndex}
-                    containerStyle={styles.swiperContainer}
-                    ref={swiperRef}
-                    cards={data}
-                    renderCard={(card, index) => (
-                        <View style={styles.card}>
-                            <TouchableWithoutFeedback
-                                onPress={() => handleCardSideClick("left")}
+                {data.length > 0 ?
+                    <>
+                        <Swiper
+                            key={`${currentStoryIndex}-${data.length}`}
+                            cardIndex={cardIndex}
+                            containerStyle={styles.swiperContainer}
+                            ref={swiperRef}
+                            cards={data}
+                            renderCard={(card, index) => {
+                                return (
+                                    <View key={`${card}-${index}`} style={styles.card}>
+                                        <TouchableWithoutFeedback
+                                            onPress={() => handleCardSideClick("left")}
+                                        >
+                                            <View style={styles.leftZone}/>
+                                        </TouchableWithoutFeedback>
+                                        <TouchableWithoutFeedback
+                                            onPress={() => handleCardSideClick("right")}
+                                        >
+                                            <View style={styles.rightZone}/>
+                                        </TouchableWithoutFeedback>
+
+                                        {(currentStoryIndex === 0 || cardIndex !== index) && (
+                                            <>
+                                                <Image
+                                                    source={{uri: card.image}}
+                                                    style={styles.image}
+                                                />
+                                                <View style={styles.infoContainer}>
+                                                    <Text style={styles.titleText}>{card.title}</Text>
+                                                </View>
+                                            </>
+                                        )}
+                                        {currentStoryIndex === 1 && cardIndex === index && (
+                                            <View style={styles.detailsContainer}>
+                                                <Text style={styles.titleText}>{card.title}</Text>
+                                                <Text style={styles.extendedOverviewText}>{card.overview}</Text>
+
+                                                <View style={styles.genreContainer}>
+                                                    {card.genres.map((genre, idx) => (
+                                                        <Text key={`${genre}-${idx}`} style={styles.genreBadge}>
+                                                            {genre}
+                                                        </Text>
+                                                    ))}
+                                                </View>
+
+                                                <View style={styles.infoRow}>
+                                                    <FontAwesome5 name="calendar-alt" size={16} color="#fff"
+                                                                  style={styles.icon}/>
+                                                    <Text style={styles.infoValue}>{card.date}</Text>
+                                                </View>
+
+                                                <View style={styles.infoRow}>
+                                                    <FontAwesome5 name="clock" size={16} color="#fff"
+                                                                  style={styles.icon}/>
+                                                    <Text style={styles.infoValue}>{card.runtime} min</Text>
+                                                </View>
+
+                                                <View style={styles.infoRow}>
+                                                    <FontAwesome5 name="user" size={16} color="#fff"
+                                                                  style={styles.icon}/>
+                                                    <Text style={styles.infoValue}>{card.director || 'N/A'}</Text>
+                                                </View>
+
+                                                <View style={styles.ratingContainer}>
+                                                    <FontAwesome5 name="star" size={16} color="#FFD700"/>
+                                                    <Text style={styles.ratingText}>{card.rate} / 10</Text>
+                                                </View>
+
+                                                {card.trailer_key && <TouchableOpacity
+                                                    style={styles.trailerButton}
+                                                    onPress={() => {
+                                                        setSelectedMovie(card);
+                                                        setTrailerModalVisible(true);
+                                                    }}
+                                                >
+                                                    <FontAwesome5 name="play" size={16} color="#fff"/>
+                                                    <Text style={styles.trailerButtonText}>Watch Trailer</Text>
+                                                </TouchableOpacity>}
+                                            </View>
+                                        )}
+                                        <View style={styles.progressContainer}>
+                                            {[0, 1].map((index) => (
+                                                <View
+                                                    key={index}
+                                                    style={[
+                                                        styles.progressBar,
+                                                        index <= currentStoryIndex
+                                                            ? styles.progressBarActive
+                                                            : styles.progressBarInactive,
+                                                    ]}
+                                                />
+                                            ))}
+                                        </View>
+                                    </View>
+                                )
+                            }}
+                            onSwiped={(index) => handleSwipedCard(index)}
+                            onSwipedLeft={(cardIndex) => {
+                                const movie_id = data[cardIndex].id;
+                                addMovieOpinion(movie_id, Opinion.DIDNT_LIKE_IT);
+                            }}
+                            onSwipedRight={(cardIndex) => {
+                                const movie_id = data[cardIndex].id;
+                                addMovieOpinion(movie_id, Opinion.LOVED_IT);
+                            }}
+                            onSwipedTop={(cardIndex) => {
+                                const movie_id = data[cardIndex].id;
+                                addMovieOpinion(movie_id, Opinion.WANT_TO_WATCH);
+                            }}
+                            stackSize={3}
+                        />
+
+                        {/* Boutons d'action */}
+                        <View style={styles.swipeButtons}>
+                            <TouchableOpacity
+                                style={styles.dislikedButton}
+                                onPress={() => swiperRef.current?.swipeLeft()}
                             >
-                                <View style={styles.leftZone}/>
-                            </TouchableWithoutFeedback>
-                            <TouchableWithoutFeedback
-                                onPress={() => handleCardSideClick("right")}
+                                <FontAwesome5 name="thumbs-down" size={24} color="#fff"/>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.interestedButton}
+                                onPress={() => swiperRef.current?.swipeTop()}
                             >
-                                <View style={styles.rightZone}/>
-                            </TouchableWithoutFeedback>
-
-                            {(currentStoryIndex === 0 || cardIndex !== index) && (
-                                <>
-                                    <Image
-                                        source={{uri: card.image}}
-                                        style={styles.image}
-                                    />
-                                    <View style={styles.infoContainer}>
-                                        <Text style={styles.titleText}>{card.title}</Text>
-                                    </View>
-                                </>
-                            )}
-                            {currentStoryIndex === 1 && cardIndex === index && (
-                                <View style={styles.detailsContainer}>
-                                    <Text style={styles.titleText}>{card.title}</Text>
-                                    <Text style={styles.extendedOverviewText}>{card.overview}</Text>
-
-                                    <View style={styles.genreContainer}>
-                                        {card.genres.map((genre, idx) => (
-                                            <Text key={idx} style={styles.genreBadge}>
-                                                {genre}
-                                            </Text>
-                                        ))}
-                                    </View>
-
-                                    <View style={styles.infoRow}>
-                                        <FontAwesome5 name="calendar-alt" size={16} color="#fff" style={styles.icon} />
-                                        <Text style={styles.infoValue}>{card.date}</Text>
-                                    </View>
-
-                                    <View style={styles.infoRow}>
-                                        <FontAwesome5 name="clock" size={16} color="#fff" style={styles.icon} />
-                                        <Text style={styles.infoValue}>{card.runtime} min</Text>
-                                    </View>
-
-                                    <View style={styles.infoRow}>
-                                        <FontAwesome5 name="user" size={16} color="#fff" style={styles.icon} />
-                                        <Text style={styles.infoValue}>{card.director || 'N/A'}</Text>
-                                    </View>
-
-                                    <View style={styles.ratingContainer}>
-                                        <FontAwesome5 name="star" size={16} color="#FFD700" />
-                                        <Text style={styles.ratingText}>{card.rate} / 10</Text>
-                                    </View>
-
-                                    <TouchableOpacity
-                                        style={styles.trailerButton}
-                                        onPress={() => {
-                                            setSelectedMovie(card);
-                                            setTrailerModalVisible(true);
-                                        }}
-                                    >
-                                        <FontAwesome5 name="play" size={16} color="#fff" />
-                                        <Text style={styles.trailerButtonText}>Watch Trailer</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-                            <View style={styles.progressContainer}>
-                                {[0, 1].map((index) => (
-                                    <View
-                                        key={index}
-                                        style={[
-                                            styles.progressBar,
-                                            index <= currentStoryIndex && cardIndex !== 0
-                                                ? styles.progressBarActive
-                                                : styles.progressBarInactive,
-                                        ]}
-                                    />
-                                ))}
-                            </View>
-                        </View>
-                    )}
-                    onSwiped={(index) => handleSwipedCard(index)}
-                    onSwipedLeft={(cardIndex) => {
-                        const movie_id = data[cardIndex].id;
-                        addMovieOpinion(movie_id, Opinion.DIDNT_LIKE_IT);
-                    }}
-                    onSwipedRight={(cardIndex) => {
-                        const movie_id = data[cardIndex].id;
-                        addMovieOpinion(movie_id, Opinion.LOVED_IT);
-                    }}
-                    onSwipedTop={(cardIndex) => {
-                        const movie_id = data[cardIndex].id;
-                        addMovieOpinion(movie_id, Opinion.WANT_TO_WATCH);
-                    }}
-                    stackSize={3}
-                />
-                {/* Boutons d'action */}
-                <View style={styles.swipeButtons}>
-                    <TouchableOpacity
-                        style={styles.dislikedButton}
-                        onPress={() => swiperRef.current?.swipeLeft()}
-                    >
-                        <FontAwesome5 name="thumbs-down" size={24} color="#fff"/>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.interestedButton}
-                        onPress={() => swiperRef.current?.swipeTop()}
-                    >
-                        <FontAwesome5 name="eye" size={24} color="#fff"/>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.lovedButton}
-                        onPress={() => swiperRef.current?.swipeRight()}
-                    >
-                        <FontAwesome5 name="thumbs-up" size={24} color="#fff"/>
-                    </TouchableOpacity>
-                </View>
+                                <FontAwesome5 name="eye" size={24} color="#fff"/>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.lovedButton}
+                                onPress={() => swiperRef.current?.swipeRight()}
+                            >
+                                <FontAwesome5 name="thumbs-up" size={24} color="#fff"/>
+                            </TouchableOpacity>
+                        </View></>
+                    : <Text style={styles.noDataText}>No movie found. Please modify your filters.</Text>}
             </View>
             {/* Modal for Platform Filters */}
             <Modal
@@ -272,29 +295,29 @@ export default function TinderLikeApp() {
                     <Text style={styles.modalTitle}>Select Platforms</Text>
                     <View style={styles.platforms}>
                         <SelectableButton
-                            onClick={() => togglePlatformSelection(Platform.NETFLIX)}
-                            selected={selectedPlatforms.includes(Platform.NETFLIX)}
+                            onClick={() => toggleTempPlatformSelection(Platform.NETFLIX)}
+                            selected={tempSelectedPlatforms.includes(Platform.NETFLIX)}
                             icon={require("../../assets/images/netflix.png")}
                             iconUnselected={require("../../assets/images/netflix-unselected.png")}
                             color="black"
                         />
                         <SelectableButton
-                            onClick={() => togglePlatformSelection(Platform.AMAZON_PRIME)}
-                            selected={selectedPlatforms.includes(Platform.AMAZON_PRIME)}
+                            onClick={() => toggleTempPlatformSelection(Platform.PRIME_VIDEO)}
+                            selected={tempSelectedPlatforms.includes(Platform.PRIME_VIDEO)}
                             icon={require("../../assets/images/prime-video.png")}
                             color="#0096F6"
                         />
                         <SelectableButton
-                            onClick={() => togglePlatformSelection(Platform.HBO_MAX)}
-                            selected={selectedPlatforms.includes(Platform.HBO_MAX)}
+                            onClick={() => toggleTempPlatformSelection(Platform.HBO_MAX)}
+                            selected={tempSelectedPlatforms.includes(Platform.HBO_MAX)}
                             icon={require("../../assets/images/max.png")}
                             iconUnselected={require("../../assets/images/max-unselected.png")}
                             color="#022AE0"
                             iconSize={40}
                         />
                         <SelectableButton
-                            onClick={() => togglePlatformSelection(Platform.DISNEY_PLUS)}
-                            selected={selectedPlatforms.includes(Platform.DISNEY_PLUS)}
+                            onClick={() => toggleTempPlatformSelection(Platform.DISNEY_PLUS)}
+                            selected={tempSelectedPlatforms.includes(Platform.DISNEY_PLUS)}
                             icon={require("../../assets/images/disney-plus.png")}
                             iconUnselected={require("../../assets/images/disney-plus-unselected.png")}
                             color="#0C0F35"
@@ -303,7 +326,10 @@ export default function TinderLikeApp() {
                     </View>
                     <TouchableOpacity
                         style={styles.applyButton}
-                        onPress={() => setFilterModalVisible(false)}
+                        onPress={() => {
+                            setSelectedPlatforms(tempSelectedPlatforms);
+                            setFilterModalVisible(false);
+                        }}
                     >
                         <Text style={styles.applyButtonText}>Apply</Text>
                     </TouchableOpacity>
@@ -520,12 +546,10 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     closeButton: {
-        position: "absolute",
-        top: 40,
-        right: 20,
-        padding: 0,
+        alignSelf: "flex-end",
+        margin: 20,
         paddingHorizontal: 5,
-        backgroundColor: "#f44336",
+        backgroundColor: "#ec3f3f",
         borderRadius: 5,
     },
     closeButtonText: {
@@ -553,7 +577,7 @@ const styles = StyleSheet.create({
         paddingTop: 50,
         elevation: 5,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: {width: 0, height: 2},
         shadowOpacity: 0.3,
         shadowRadius: 4,
     },
@@ -600,13 +624,20 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#E63946",
+        backgroundColor: "#FF6347",
         padding: 12,
         borderRadius: 25,
+        elevation: 5,
     },
     trailerButtonText: {
         color: "#fff",
         marginLeft: 10,
         fontSize: 16,
     },
+    noDataText: {
+        fontSize: 24,
+        fontWeight: "bold",
+        textAlign: "center",
+        marginTop: 50,
+    }
 });

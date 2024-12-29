@@ -55,6 +55,11 @@ export default function MyList() {
                         image: item.image,
                         rate: item.rate,
                         overview: item.overview,
+                        genres: item.genres as string[],
+                        date: item.date,
+                        runtime: item.runtime,
+                        director: item.director,
+                        trailer_key: item.trailer_key,
                     },
                 })}>
                     <View style={styles.rateContainer}>

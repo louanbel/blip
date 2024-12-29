@@ -4,7 +4,7 @@ export enum Platform {
     HULU = "Hulu",
     HBO_MAX = "HBO Max",
     APPLE_TV = "Apple TV",
-    AMAZON_PRIME = "Amazon Prime",
+    PRIME_VIDEO = "Prime Video",
     PARAMOUNT_PLUS = "Paramount+",
     YOUTUBE = "YouTube",
 }

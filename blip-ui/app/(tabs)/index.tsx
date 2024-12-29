@@ -1,19 +1,21 @@
 import React, {useEffect, useRef, useState} from "react";
 import {
+    ActivityIndicator,
+    Image,
+    Modal,
+    SafeAreaView,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
-    Image,
-    ActivityIndicator,
-    SafeAreaView,
-    Modal,
 } from "react-native";
 import Swiper from "react-native-deck-swiper";
 import {FontAwesome5} from "@expo/vector-icons";
-import {Opinion, Movie, format_movie_from_api} from "@/models/Movie";
+import {format_movie_from_api, Movie, Opinion} from "@/models/Movie";
 import {SelectableButton} from "@/components/SelectableButton/SelectableButton";
 import {Platform} from "@/models/Platform";
+import WebView from "react-native-webview";
 
 export default function TinderLikeApp() {
     const swiperRef = useRef<Swiper<Movie> | null>(null);
@@ -21,6 +23,10 @@ export default function TinderLikeApp() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
     const [filterModalVisible, setFilterModalVisible] = useState(false);
+    const [currentStoryIndex, setCurrentStoryIndex] = useState<number>(0);
+    const [cardIndex, setCardIndex] = useState(0);
+    const [trailerModalVisible, setTrailerModalVisible] = useState(false);
+    const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
     async function fetchMovies() {
         try {
@@ -29,7 +35,7 @@ export default function TinderLikeApp() {
             const moviesList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
             setData(moviesList);
         } catch (error) {
-            console.error("Erreur lors de la récupération des films :", error);
+            console.error("Error while fetching movie:", error);
         } finally {
             setIsLoading(false);
         }
@@ -45,7 +51,7 @@ export default function TinderLikeApp() {
                 body: JSON.stringify({movie_id, opinion}),
             });
         } catch (error) {
-            console.error("Erreur lors de l'ajout de l'opinion du film :", error);
+            console.error("Error while adding film opinion:", error);
         }
     }
 
@@ -70,8 +76,45 @@ export default function TinderLikeApp() {
         );
     }
 
+    function handleCardSideClick(side: string) {
+        setCurrentStoryIndex((prevIndex) => {
+            return side === "left" ? Math.max(0, prevIndex - 1) : Math.min(1, prevIndex + 1);
+        });
+    }
+
+    function handleSwipedCard(index: number) {
+        setCurrentStoryIndex(0);
+        setCardIndex(index + 1);
+    }
+
     return (
         <SafeAreaView style={styles.container}>
+            <Modal
+                visible={trailerModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setTrailerModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={() => setTrailerModalVisible(false)}
+                    >
+                        <Text style={styles.closeButtonText}>⨯</Text>
+                    </TouchableOpacity>
+                    {selectedMovie && (
+                        <View style={styles.webviewContainer}>
+                            <WebView
+                                source={{uri: `https://www.youtube.com/embed/${selectedMovie.trailer_key}`}}
+                                allowsInlineMediaPlayback
+                                javaScriptEnabled
+                                domStorageEnabled
+                                allowsFullscreenVideo
+                            />
+                        </View>
+                    )}
+                </View>
+            </Modal>
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.appName}>blip</Text>
@@ -91,22 +134,97 @@ export default function TinderLikeApp() {
             {/* Swiper */}
             <View style={styles.swiperContainer}>
                 <Swiper
+                    infinite
+                    key={`${currentStoryIndex}-${data.length}`}
+                    cardIndex={cardIndex}
                     containerStyle={styles.swiperContainer}
                     ref={swiperRef}
-                    infinite
                     cards={data}
-                    renderCard={(card) => (
+                    renderCard={(card, index) => (
                         <View style={styles.card}>
-                            <Image source={{ uri: card.image }} style={styles.image} />
-                            <View style={styles.rateContainer}>
-                                <Text style={styles.rate}>{card.rate}/10</Text>
-                            </View>
-                            <View style={styles.infoContainer}>
-                                <Text style={styles.titleText}>{card.title}</Text>
-                                <Text style={styles.overviewText}>{card.overview.split(" ").splice(0, 15).join(" ")}...</Text>
+                            <TouchableWithoutFeedback
+                                onPress={() => handleCardSideClick("left")}
+                            >
+                                <View style={styles.leftZone}/>
+                            </TouchableWithoutFeedback>
+                            <TouchableWithoutFeedback
+                                onPress={() => handleCardSideClick("right")}
+                            >
+                                <View style={styles.rightZone}/>
+                            </TouchableWithoutFeedback>
+
+                            {(currentStoryIndex === 0 || cardIndex !== index) && (
+                                <>
+                                    <Image
+                                        source={{uri: card.image}}
+                                        style={styles.image}
+                                    />
+                                    <View style={styles.infoContainer}>
+                                        <Text style={styles.titleText}>{card.title}</Text>
+                                    </View>
+                                </>
+                            )}
+                            {currentStoryIndex === 1 && cardIndex === index && (
+                                <View style={styles.detailsContainer}>
+                                    <Text style={styles.titleText}>{card.title}</Text>
+                                    <Text style={styles.extendedOverviewText}>{card.overview}</Text>
+
+                                    <View style={styles.genreContainer}>
+                                        {card.genres.map((genre, idx) => (
+                                            <Text key={idx} style={styles.genreBadge}>
+                                                {genre}
+                                            </Text>
+                                        ))}
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <FontAwesome5 name="calendar-alt" size={16} color="#fff" style={styles.icon} />
+                                        <Text style={styles.infoValue}>{card.date}</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <FontAwesome5 name="clock" size={16} color="#fff" style={styles.icon} />
+                                        <Text style={styles.infoValue}>{card.runtime} min</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <FontAwesome5 name="user" size={16} color="#fff" style={styles.icon} />
+                                        <Text style={styles.infoValue}>{card.director || 'N/A'}</Text>
+                                    </View>
+
+                                    <View style={styles.ratingContainer}>
+                                        <FontAwesome5 name="star" size={16} color="#FFD700" />
+                                        <Text style={styles.ratingText}>{card.rate} / 10</Text>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={styles.trailerButton}
+                                        onPress={() => {
+                                            setSelectedMovie(card);
+                                            setTrailerModalVisible(true);
+                                        }}
+                                    >
+                                        <FontAwesome5 name="play" size={16} color="#fff" />
+                                        <Text style={styles.trailerButtonText}>Watch Trailer</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                            <View style={styles.progressContainer}>
+                                {[0, 1].map((index) => (
+                                    <View
+                                        key={index}
+                                        style={[
+                                            styles.progressBar,
+                                            index <= currentStoryIndex && cardIndex !== 0
+                                                ? styles.progressBarActive
+                                                : styles.progressBarInactive,
+                                        ]}
+                                    />
+                                ))}
                             </View>
                         </View>
                     )}
+                    onSwiped={(index) => handleSwipedCard(index)}
                     onSwipedLeft={(cardIndex) => {
                         const movie_id = data[cardIndex].id;
                         addMovieOpinion(movie_id, Opinion.DIDNT_LIKE_IT);
@@ -119,7 +237,6 @@ export default function TinderLikeApp() {
                         const movie_id = data[cardIndex].id;
                         addMovieOpinion(movie_id, Opinion.WANT_TO_WATCH);
                     }}
-                    cardIndex={0}
                     stackSize={3}
                 />
                 {/* Boutons d'action */}
@@ -128,19 +245,19 @@ export default function TinderLikeApp() {
                         style={styles.dislikedButton}
                         onPress={() => swiperRef.current?.swipeLeft()}
                     >
-                        <FontAwesome5 name="thumbs-down" size={24} color="#fff" />
+                        <FontAwesome5 name="thumbs-down" size={24} color="#fff"/>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.interestedButton}
                         onPress={() => swiperRef.current?.swipeTop()}
                     >
-                        <FontAwesome5 name="eye" size={24} color="#fff" />
+                        <FontAwesome5 name="eye" size={24} color="#fff"/>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.lovedButton}
                         onPress={() => swiperRef.current?.swipeRight()}
                     >
-                        <FontAwesome5 name="thumbs-up" size={24} color="#fff" />
+                        <FontAwesome5 name="thumbs-up" size={24} color="#fff"/>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -271,8 +388,8 @@ const styles = StyleSheet.create({
         bottom: 0,
         padding: 16,
         paddingBottom: 30,
-        backgroundColor: "#333",
-        opacity: 0.8,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex"
     },
     overviewText: {
         fontSize: 16,
@@ -326,7 +443,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     modalContainer: {
-        flex: 1,
+        flex: 0,
+        width: "100%",
+        height: "100%",
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -352,6 +471,142 @@ const styles = StyleSheet.create({
     applyButtonText: {
         color: "#fff",
         fontWeight: "bold",
+        fontSize: 16,
+    },
+    leftZone: {
+        position: "absolute",
+        width: "30%",
+        height: "100%",
+        top: 0,
+        left: 0,
+        zIndex: 10,
+    },
+    rightZone: {
+        position: "absolute",
+        width: "30%",
+        height: "100%",
+        right: 0,
+        top: 0,
+        zIndex: 10,
+    },
+    progressContainer: {
+        position: "absolute",
+        top: 16,
+        left: 16,
+        right: 16,
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    progressBar: {
+        flex: 1,
+        height: 4,
+        marginHorizontal: 2,
+        borderRadius: 2,
+    },
+    progressBarActive: {
+        backgroundColor: "white",
+        opacity: 0.8,
+    },
+    progressBarInactive: {
+        backgroundColor: "black",
+        opacity: 0.5,
+    },
+    trailerContainer: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    trailerButtonIcon: {
+        marginRight: 10,
+    },
+    closeButton: {
+        position: "absolute",
+        top: 40,
+        right: 20,
+        padding: 0,
+        paddingHorizontal: 5,
+        backgroundColor: "#f44336",
+        borderRadius: 5,
+    },
+    closeButtonText: {
+        color: "#fff",
+        fontSize: 40,
+    },
+    webviewContainer: {
+        width: "90%",
+        height: "30%",
+        flexGrow: 0,
+        backgroundColor: "#000",
+    },
+    extendedOverviewText: {
+        fontSize: 14,
+        color: "#fff",
+        marginVertical: 10,
+        lineHeight: 20,
+    },
+    detailsContainer: {
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#1C1C1E",
+        borderRadius: 20,
+        padding: 30,
+        paddingTop: 50,
+        elevation: 5,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    genreContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        marginVertical: 10,
+    },
+    genreBadge: {
+        backgroundColor: "#FF6347",
+        color: "#fff",
+        fontSize: 12,
+        borderRadius: 10,
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        marginRight: 5,
+        marginBottom: 5,
+    },
+    infoRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginVertical: 5,
+    },
+    infoValue: {
+        fontSize: 16,
+        color: "#fff",
+        marginLeft: 10,
+    },
+    icon: {
+        marginRight: 5,
+    },
+    ratingContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginVertical: 10,
+    },
+    ratingText: {
+        fontSize: 16,
+        color: "#FFD700",
+        marginLeft: 5,
+    },
+    trailerButton: {
+        marginTop: 15,
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#E63946",
+        padding: 12,
+        borderRadius: 25,
+    },
+    trailerButtonText: {
+        color: "#fff",
+        marginLeft: 10,
         fontSize: 16,
     },
 });

@@ -40,7 +40,9 @@
     "react-native-stack": "^1.0.0-alpha11",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.10",
-    "rn-swiper-list": "^2.1.0"
+    "rn-swiper-list": "^2.1.0",
+    "expo-av": "~14.0.7",
+    "react-native-webview": "13.8.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

@@ -13,6 +13,9 @@ export interface Movie {
     rate: number,
     overview: string,
     trailer_key: string,
+    runtime: string,
+    genres: string[],
+    director: string,
 }
 
 export function format_movie_from_api(movie: any): Movie {
@@ -25,5 +28,8 @@ export function format_movie_from_api(movie: any): Movie {
         rate: parseFloat(movie.rate.toFixed(1)),
         overview: movie.overview,
         trailer_key: movie.trailer_key,
+        runtime: movie.runtime,
+        genres: movie.genres,
+        director: movie.director,
     }
 }

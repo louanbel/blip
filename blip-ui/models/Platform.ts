@@ -1,3 +1,4 @@
+
 export enum Platform {
     NETFLIX = "Netflix",
     DISNEY_PLUS = "Disney+",

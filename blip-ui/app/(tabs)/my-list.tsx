@@ -8,15 +8,13 @@ import {
     Dimensions,
     ActivityIndicator, Pressable, SafeAreaView,
 } from "react-native";
-import {useFocusEffect} from "@react-navigation/native";
 import {format_movie_from_api, Movie, Opinion} from "@/models/Movie";
-import {useRouter} from "expo-router";
+import {useFocusEffect, useRouter} from "expo-router";
 
 export default function MyList() {
     const [movies, setMovies] = useState<Movie[]>([]);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
-
     const fetchMovies = async () => {
         try {
             setLoading(true);

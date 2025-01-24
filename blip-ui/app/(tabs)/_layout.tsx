@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-
-import { TabBarIcon } from '@/components/navigation/TabBarIcon';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -11,15 +10,21 @@ export default function TabLayout() {
     return (
         <Tabs
             screenOptions={{
-                tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+                tabBarActiveTintColor: Colors.tint,
+                tabBarInactiveTintColor: Colors.tabIconDefault,
                 headerShown: false,
-            }}>
+            }}
+        >
             <Tabs.Screen
                 name="index"
                 options={{
                     title: 'Home',
                     tabBarIcon: ({ color, focused }) => (
-                        <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
+                        <Ionicons
+                            name={focused ? 'home' : 'home-outline'}
+                            size={24}
+                            color={color}
+                        />
                     ),
                 }}
             />
@@ -28,7 +33,11 @@ export default function TabLayout() {
                 options={{
                     title: 'Watchlist',
                     tabBarIcon: ({ color, focused }) => (
-                        <TabBarIcon name={focused ? 'bookmark' : 'bookmark-outline'} color={color} />
+                        <Ionicons
+                            name={focused ? 'bookmark' : 'bookmark-outline'}
+                            size={24}
+                            color={color}
+                        />
                     ),
                 }}
             />

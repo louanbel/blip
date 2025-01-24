@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from "react";
 import {
     ActivityIndicator,
-    Image,
+    Image, Linking,
     Modal,
     SafeAreaView,
     StyleSheet,
@@ -16,6 +16,7 @@ import {format_movie_from_api, Movie, Opinion} from "@/models/Movie";
 import {SelectableButton} from "@/components/SelectableButton/SelectableButton";
 import {Platform} from "@/models/Platform";
 import WebView from "react-native-webview";
+import {toImageSource} from "@/app/helpers/movie";
 
 export default function TinderLikeApp() {
     const swiperRef = useRef<Swiper<Movie> | null>(null);
@@ -28,13 +29,22 @@ export default function TinderLikeApp() {
     const [trailerModalVisible, setTrailerModalVisible] = useState(false);
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [tempSelectedPlatforms, setTempSelectedPlatforms] = useState<Platform[]>(selectedPlatforms);
+    const [currentPage, setCurrentPage] = useState(1);
 
-    async function fetchMovies() {
+    async function fetchMovies(page: number = 1) {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/discover-movies?platforms=${selectedPlatforms.join(",").replace('+', '').replace(" ", "+")}`);
+            setIsLoading(true);
+            console.log("URL", process.env.EXPO_PUBLIC_API_URL);
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/discover-movies?user_id=1&platforms=${selectedPlatforms.join(",").replace('+', '').replace(" ", "+")}&page=${page}`);
             const data = await response.json();
             const moviesList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
-            setData(moviesList);
+
+
+            if (page === 1) {
+                setData(moviesList);
+            } else {
+                setData((prevData) => [...prevData, ...moviesList]);
+            }
         } catch (error) {
             console.error("Error while fetching movie:", error);
         } finally {
@@ -64,13 +74,11 @@ export default function TinderLikeApp() {
         }
     }
 
-    function togglePlatformSelection(platform: Platform) {
-        if (selectedPlatforms.includes(platform)) {
-            setSelectedPlatforms(selectedPlatforms.filter((p) => p !== platform));
-        } else {
-            setSelectedPlatforms([...selectedPlatforms, platform]);
-        }
+    function getDynamicStyle(platform: string): any {
+        const key = `button_${platform.replace(' ', '_').toLowerCase()}`;
+        return styles[key as keyof typeof styles];
     }
+
 
     useEffect(() => {
         fetchMovies();
@@ -79,7 +87,8 @@ export default function TinderLikeApp() {
     useEffect(() => {
         console.log("Selected platforms:", selectedPlatforms);
         setIsLoading(true);
-        fetchMovies();
+        setCurrentPage(1);
+        fetchMovies(1);
     }, [selectedPlatforms]);
 
     if (isLoading) {
@@ -100,6 +109,14 @@ export default function TinderLikeApp() {
     function handleSwipedCard(index: number) {
         setCurrentStoryIndex(0);
         setCardIndex(index + 1);
+        if (index === data.length - 5) {
+            console.log("Prefetching next page...");
+            const nextPage = currentPage + 1;
+            setCurrentPage(nextPage);
+            if (!isLoading) {
+                fetchMovies(nextPage);
+            }
+        }
     }
 
     return (
@@ -157,93 +174,123 @@ export default function TinderLikeApp() {
                             ref={swiperRef}
                             cards={data}
                             renderCard={(card, index) => {
-                                return (
-                                    <View key={`${card}-${index}`} style={styles.card}>
-                                        <TouchableWithoutFeedback
-                                            onPress={() => handleCardSideClick("left")}
-                                        >
-                                            <View style={styles.leftZone}/>
-                                        </TouchableWithoutFeedback>
-                                        <TouchableWithoutFeedback
-                                            onPress={() => handleCardSideClick("right")}
-                                        >
-                                            <View style={styles.rightZone}/>
-                                        </TouchableWithoutFeedback>
+                                if (card !== undefined) {
+                                    return (
+                                        <View key={`${card}-${index}`} style={styles.card}>
+                                            <TouchableWithoutFeedback
+                                                onPress={() => handleCardSideClick("left")}
+                                            >
+                                                <View style={styles.leftZone}/>
+                                            </TouchableWithoutFeedback>
+                                            <TouchableWithoutFeedback
+                                                onPress={() => handleCardSideClick("right")}
+                                            >
+                                                <View style={styles.rightZone}/>
+                                            </TouchableWithoutFeedback>
 
-                                        {(currentStoryIndex === 0 || cardIndex !== index) && (
-                                            <>
-                                                <Image
-                                                    source={{uri: card.image}}
-                                                    style={styles.image}
-                                                />
-                                                <View style={styles.infoContainer}>
-                                                    <Text style={styles.titleText}>{card.title}</Text>
+                                            {(currentStoryIndex === 0 || cardIndex !== index) && (
+                                                <>
+                                                    <Image
+                                                        source={{uri: card.image}}
+                                                        style={styles.image}
+                                                    />
+                                                    <View style={styles.infoContainer}>
+                                                        <Text style={styles.titleText}>{card.title}</Text>
+                                                        {card.platforms.map((platform, idx) => (
+                                                            <View key={`${platform}-${idx}`}
+                                                                  style={[styles.platformIconContainer, getDynamicStyle(platform)]}>
+                                                                <Image
+                                                                    style={{
+                                                                        width: 30,
+                                                                        height: 30,
+                                                                        resizeMode: "contain"
+                                                                    }}
+                                                                    source={toImageSource(platform)}
+                                                                />
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                </>
+                                            )}
+                                            {currentStoryIndex === 1 && cardIndex === index && (
+                                                <View style={styles.detailsContainer}>
+                                                    <View style={styles.titleContainer}>
+                                                        <Text style={styles.titleText}>{card.title}</Text>
+                                                        {card.platforms.map((platform, idx) => (
+                                                            <View key={`${platform}-${idx}`}
+                                                                  style={[styles.platformIconContainer, getDynamicStyle(platform)]}>
+                                                                <Image
+                                                                    style={{
+                                                                        width: 30,
+                                                                        height: 30,
+                                                                        resizeMode: "contain"
+                                                                    }}
+                                                                    source={toImageSource(platform)}
+                                                                />
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                    <Text style={styles.extendedOverviewText}>{card.overview}</Text>
+
+                                                    <View style={styles.genreContainer}>
+                                                        {card.genres.map((genre, idx) => (
+                                                            <Text key={`${genre}-${idx}`} style={styles.genreBadge}>
+                                                                {genre}
+                                                            </Text>
+                                                        ))}
+                                                    </View>
+
+                                                    <View style={styles.infoRow}>
+                                                        <FontAwesome5 name="calendar-alt" size={16} color="#fff"
+                                                                      style={styles.icon}/>
+                                                        <Text style={styles.infoValue}>{card.date}</Text>
+                                                    </View>
+
+                                                    <View style={styles.infoRow}>
+                                                        <FontAwesome5 name="clock" size={16} color="#fff"
+                                                                      style={styles.icon}/>
+                                                        <Text style={styles.infoValue}>{card.runtime} min</Text>
+                                                    </View>
+
+                                                    <View style={styles.infoRow}>
+                                                        <FontAwesome5 name="user" size={16} color="#fff"
+                                                                      style={styles.icon}/>
+                                                        <Text style={styles.infoValue}>{card.director || 'N/A'}</Text>
+                                                    </View>
+
+                                                    <View style={styles.ratingContainer}>
+                                                        <FontAwesome5 name="star" size={16} color="#FFD700"/>
+                                                        <Text style={styles.ratingText}>{card.rate} / 10</Text>
+                                                    </View>
+
+                                                    {card.trailer_key && <TouchableOpacity
+                                                        style={styles.trailerButton}
+                                                        onPress={() => {
+                                                            setSelectedMovie(card);
+                                                            setTrailerModalVisible(true);
+                                                        }}
+                                                    >
+                                                        <FontAwesome5 name="play" size={16} color="#fff"/>
+                                                        <Text style={styles.trailerButtonText}>Watch Trailer</Text>
+                                                    </TouchableOpacity>}
                                                 </View>
-                                            </>
-                                        )}
-                                        {currentStoryIndex === 1 && cardIndex === index && (
-                                            <View style={styles.detailsContainer}>
-                                                <Text style={styles.titleText}>{card.title}</Text>
-                                                <Text style={styles.extendedOverviewText}>{card.overview}</Text>
-
-                                                <View style={styles.genreContainer}>
-                                                    {card.genres.map((genre, idx) => (
-                                                        <Text key={`${genre}-${idx}`} style={styles.genreBadge}>
-                                                            {genre}
-                                                        </Text>
-                                                    ))}
-                                                </View>
-
-                                                <View style={styles.infoRow}>
-                                                    <FontAwesome5 name="calendar-alt" size={16} color="#fff"
-                                                                  style={styles.icon}/>
-                                                    <Text style={styles.infoValue}>{card.date}</Text>
-                                                </View>
-
-                                                <View style={styles.infoRow}>
-                                                    <FontAwesome5 name="clock" size={16} color="#fff"
-                                                                  style={styles.icon}/>
-                                                    <Text style={styles.infoValue}>{card.runtime} min</Text>
-                                                </View>
-
-                                                <View style={styles.infoRow}>
-                                                    <FontAwesome5 name="user" size={16} color="#fff"
-                                                                  style={styles.icon}/>
-                                                    <Text style={styles.infoValue}>{card.director || 'N/A'}</Text>
-                                                </View>
-
-                                                <View style={styles.ratingContainer}>
-                                                    <FontAwesome5 name="star" size={16} color="#FFD700"/>
-                                                    <Text style={styles.ratingText}>{card.rate} / 10</Text>
-                                                </View>
-
-                                                {card.trailer_key && <TouchableOpacity
-                                                    style={styles.trailerButton}
-                                                    onPress={() => {
-                                                        setSelectedMovie(card);
-                                                        setTrailerModalVisible(true);
-                                                    }}
-                                                >
-                                                    <FontAwesome5 name="play" size={16} color="#fff"/>
-                                                    <Text style={styles.trailerButtonText}>Watch Trailer</Text>
-                                                </TouchableOpacity>}
+                                            )}
+                                            <View style={styles.progressContainer}>
+                                                {[0, 1].map((index) => (
+                                                    <View
+                                                        key={index}
+                                                        style={[
+                                                            styles.progressBar,
+                                                            index <= currentStoryIndex
+                                                                ? styles.progressBarActive
+                                                                : styles.progressBarInactive,
+                                                        ]}
+                                                    />
+                                                ))}
                                             </View>
-                                        )}
-                                        <View style={styles.progressContainer}>
-                                            {[0, 1].map((index) => (
-                                                <View
-                                                    key={index}
-                                                    style={[
-                                                        styles.progressBar,
-                                                        index <= currentStoryIndex
-                                                            ? styles.progressBarActive
-                                                            : styles.progressBarInactive,
-                                                    ]}
-                                                />
-                                            ))}
                                         </View>
-                                    </View>
-                                )
+                                    )
+                                }
                             }}
                             onSwiped={(index) => handleSwipedCard(index)}
                             onSwipedLeft={(cardIndex) => {
@@ -409,13 +456,16 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
     },
     infoContainer: {
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 16,
         position: "absolute",
         width: "100%",
         bottom: 0,
         padding: 16,
         paddingBottom: 30,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex"
     },
     overviewText: {
         fontSize: 16,
@@ -639,5 +689,60 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         textAlign: "center",
         marginTop: 50,
+    },
+    platformButtonContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-evenly",
+        marginVertical: 10,
+    },
+    platformButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        margin: 5,
+        alignItems: "center",
+    },
+    platformButtonText: {
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: 14,
+    },
+    button_netflix: {
+        backgroundColor: "black",
+    },
+    button_disney_plus: {
+        backgroundColor: "#113CCF",
+    },
+    button_prime_video: {
+        backgroundColor: "#00A8E1",
+    },
+    button_hbo_max: {
+        backgroundColor: "#6F2DA8",
+    },
+    button_paramount_plus: {
+        backgroundColor: "#0057FF",
+    },
+    button_apple_tv_plus: {
+        backgroundColor: "#000",
+    },
+    button_youtube: {
+        backgroundColor: "#FF0000",
+    },
+    button_hulu: {
+        backgroundColor: "#1CE783",
+    },
+    platformIconContainer: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 5,
+        borderRadius: 10,
+    },
+    titleContainer: {
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 16,
     }
 });

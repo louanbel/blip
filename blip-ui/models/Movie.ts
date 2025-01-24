@@ -1,3 +1,5 @@
+import {Platform} from "@/models/Platform";
+
 export enum Opinion {
     LOVED_IT = 1,
     DIDNT_LIKE_IT = 2,
@@ -16,10 +18,11 @@ export interface Movie {
     runtime: string,
     genres: string[],
     director: string,
+    platforms: Platform[]
 }
 
 export function format_movie_from_api(movie: any): Movie {
-    console.log(movie);
+    // console.log(movie);
     return {
         id: movie.id,
         title: movie.title,
@@ -31,5 +34,6 @@ export function format_movie_from_api(movie: any): Movie {
         runtime: movie.runtime,
         genres: movie.genres,
         director: movie.director,
+        platforms: movie.platforms
     }
 }

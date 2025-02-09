@@ -9,20 +9,27 @@ users_bp = Blueprint('users', __name__, url_prefix='/user')
 @users_bp.route('/<int:user_id>/movies', methods=['GET'])
 def get_user_movies(user_id):
     opinion_filter = request.args.get('opinion')
+    page = int(request.args.get('page', 1))
+    page_size = 20
+
+    query = UserMovie.query.filter_by(user_id=user_id)
     if opinion_filter:
-        user_movies = UserMovie.query.filter_by(user_id=user_id, opinion=Opinion(int(opinion_filter))).all()
-    else:
-        user_movies = UserMovie.query.filter_by(user_id=user_id).all()
+        query = query.filter(UserMovie.opinion == Opinion(int(opinion_filter)))
+
+    total_movies = query.count()
+    user_movies = query.order_by(UserMovie.created_at.desc()).limit(page_size).offset(page_size * (page - 1)).all()
+    has_more = (page * page_size) < total_movies
 
     detailed_movies = []
-    from src.services.tmdb import enrich_movie_by_id
+    from src.services.tmdb import get_movie
     for user_movie in user_movies:
-        enriched = enrich_movie_by_id(user_movie.movie_id)
+        enriched = get_movie(user_movie.movie_id, [])
         if enriched:
             detailed_movies.append(enriched)
 
-    detailed_movies = detailed_movies[::-1]
-    return jsonify(detailed_movies), 200
+    print(f"✅ WatchList retrieved, total: {total_movies}, {[d["id"] for d in detailed_movies]}, {has_more}")
+    return jsonify({"movies": detailed_movies, "has_more": has_more}), 200
+
 
 @users_bp.route('/<int:user_id>/movie', methods=['POST'])
 def add_user_movie(user_id):
@@ -36,13 +43,15 @@ def add_user_movie(user_id):
         if user is None:
             return jsonify({'message': 'User not found'}), 404
 
-        # Vérification en utilisant SQLAlchemy ORM
         if session.query(UserMovie).filter_by(user_id=user_id, movie_id=movie_id).first():
             return jsonify({'message': 'Movie already added to user'}), 200
 
+        print(f"✅ Adding movie {movie_id} to user {user_id}")
         new_user_movie = UserMovie(user_id=user_id, movie_id=movie_id, opinion=Opinion(opinion))
         session.add(new_user_movie)
+        session.flush()
         session.commit()
+        session.expire_all()
 
     return jsonify({'message': 'Movie added to user'}), 200
 

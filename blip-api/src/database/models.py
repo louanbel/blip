@@ -25,6 +25,7 @@ class UserMovie(db.Model):
     movie_id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), primary_key=True)
     opinion = Column(Enum(Opinion), primary_key=True)
+    created_at = Column(db.DateTime, server_default=db.func.now())
 
     user = db.relationship('User', back_populates='movies')
 

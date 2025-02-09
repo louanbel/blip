@@ -40,10 +40,12 @@ export default function TinderLikeApp() {
             const data = await response.json();
             const newMovieList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
 
-            setMovieList(newMovieList);
-            if (prefetching) {
-                setMovieList((prevData) => [...prevData, ...newMovieList]);
-            }
+            setMovieList((prevData) => {
+                const existingIds = new Set(prevData.map((movie) => movie.id));
+                const filteredMovies = newMovieList.filter((movie) => !existingIds.has(movie.id));
+
+                return [...prevData, ...filteredMovies];
+            });
         } catch (error) {
             console.error("Error while fetching movie:", error);
         } finally {

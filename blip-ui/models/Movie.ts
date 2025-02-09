@@ -17,7 +17,7 @@ export interface Movie {
     trailer_key: string | null,
     runtime: string,
     genres: string[],
-    director: string,
+    // director: string,
     platforms: Platform[]
 }
 
@@ -33,7 +33,7 @@ export function format_movie_from_api(movie: any): Movie {
         trailer_key: movie.trailer_key === "null" ? null : movie.trailer_key,
         runtime: movie.runtime,
         genres: movie.genres,
-        director: movie.director,
+        // director: movie.director,
         platforms: movie.platforms
     }
 }

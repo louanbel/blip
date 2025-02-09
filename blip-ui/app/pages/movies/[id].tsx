@@ -50,11 +50,6 @@ export default function MovieDetails() {
                     <Text style={styles.infoValue}>{runtime} min</Text>
                 </View>
 
-                <View style={styles.infoRow}>
-                    <FontAwesome5 name="user" size={16} style={styles.icon}/>
-                    <Text style={styles.infoValue}>{director || 'N/A'}</Text>
-                </View>
-
             </View>
         </>
     );

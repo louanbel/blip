@@ -1,7 +1,7 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {ReactElement, useEffect, useRef, useState} from "react";
 import {
     ActivityIndicator,
-    Image, Linking,
+    Image,
     Modal,
     SafeAreaView,
     StyleSheet,
@@ -20,8 +20,10 @@ import {toImageSource} from "@/app/helpers/movie";
 
 export default function TinderLikeApp() {
     const swiperRef = useRef<Swiper<Movie> | null>(null);
-    const [data, setData] = useState<Movie[]>([]);
+
+    const [movieList, setMovieList] = useState<Movie[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPreloading, setIsPreloading] = useState(false);
     const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([Platform.DISNEY_PLUS, Platform.NETFLIX, Platform.PRIME_VIDEO, Platform.HBO_MAX, Platform.PARAMOUNT_PLUS]);
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [currentStoryIndex, setCurrentStoryIndex] = useState<number>(0);
@@ -29,26 +31,24 @@ export default function TinderLikeApp() {
     const [trailerModalVisible, setTrailerModalVisible] = useState(false);
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [tempSelectedPlatforms, setTempSelectedPlatforms] = useState<Platform[]>(selectedPlatforms);
-    const [currentPage, setCurrentPage] = useState(1);
 
-    async function fetchMovies(page: number = 1) {
+
+    async function fetchMovies(prefetching?: boolean) {
         try {
-            setIsLoading(true);
             console.log("URL", process.env.EXPO_PUBLIC_API_URL);
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/discover-movies?user_id=1&platforms=${selectedPlatforms.join(",").replace('+', '').replace(" ", "+")}&page=${page}`);
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/discover-movies?user_id=1&platforms=${selectedPlatforms.join(",").replace('+', '').replace(" ", "+")}`);
             const data = await response.json();
-            const moviesList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
+            const newMovieList: Movie[] = data.map((movie: any) => format_movie_from_api(movie));
 
-
-            if (page === 1) {
-                setData(moviesList);
-            } else {
-                setData((prevData) => [...prevData, ...moviesList]);
+            setMovieList(newMovieList);
+            if (prefetching) {
+                setMovieList((prevData) => [...prevData, ...newMovieList]);
             }
         } catch (error) {
             console.error("Error while fetching movie:", error);
         } finally {
             setIsLoading(false);
+            setIsPreloading(false);
         }
     }
 
@@ -80,41 +80,30 @@ export default function TinderLikeApp() {
     }
 
 
-    useEffect(() => {
+    /*useEffect(() => {
         fetchMovies();
-    }, []);
+    }, []);*/
 
     useEffect(() => {
         console.log("Selected platforms:", selectedPlatforms);
         setIsLoading(true);
-        setCurrentPage(1);
-        fetchMovies(1);
+        fetchMovies();
     }, [selectedPlatforms]);
-
-    if (isLoading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0000ff"/>
-                <Text>Loading movies...</Text>
-            </View>
-        );
-    }
 
     function handleCardSideClick(side: string) {
         setCurrentStoryIndex((prevIndex) => {
-            return side === "left" ? Math.max(0, prevIndex - 1) : Math.min(1, prevIndex + 1);
+            return side === "left" ? Math.max(0, prevIndex - 1) : Math.min(2, prevIndex + 1);
         });
     }
 
     function handleSwipedCard(index: number) {
         setCurrentStoryIndex(0);
         setCardIndex(index + 1);
-        if (index === data.length - 5) {
-            console.log("Prefetching next page...");
-            const nextPage = currentPage + 1;
-            setCurrentPage(nextPage);
-            if (!isLoading) {
-                fetchMovies(nextPage);
+        if (index >= movieList.length - 10) {
+            if (!isPreloading && !isLoading) {
+                console.log("Prefetching next page...");
+                setIsPreloading(true);
+                fetchMovies(true);
             }
         }
     }
@@ -164,17 +153,23 @@ export default function TinderLikeApp() {
             </View>
 
             {/* Swiper */}
-            <View style={styles.swiperContainer}>
-                {data.length > 0 ?
-                    <>
-                        <Swiper
-                            key={`${currentStoryIndex}-${data.length}`}
-                            cardIndex={cardIndex}
-                            containerStyle={styles.swiperContainer}
-                            ref={swiperRef}
-                            cards={data}
-                            renderCard={(card, index) => {
-                                if (card !== undefined) {
+            {isLoading || (isPreloading && cardIndex == movieList.length) ?
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0000ff"/>
+                    <Text>Loading movies...</Text>
+                </View> :
+                <View style={styles.swiperContainer}>
+                    {movieList.length > 0 ?
+                        <>
+                            <Swiper
+                                key={`${currentStoryIndex}-${movieList.length}`}
+                                cardIndex={cardIndex}
+                                containerStyle={styles.swiperContainer}
+                                ref={swiperRef}
+                                cards={movieList}
+                                renderCard={(card, index) => {
+                                    if (!card) return null;
+
                                     return (
                                         <View key={`${card}-${index}`} style={styles.card}>
                                             <TouchableWithoutFeedback
@@ -212,7 +207,7 @@ export default function TinderLikeApp() {
                                                     </View>
                                                 </>
                                             )}
-                                            {currentStoryIndex === 1 && cardIndex === index && (
+                                            {(currentStoryIndex === 1) && cardIndex === index && (
                                                 <View style={styles.detailsContainer}>
                                                     <View style={styles.titleContainer}>
                                                         <Text style={styles.titleText}>{card.title}</Text>
@@ -253,12 +248,6 @@ export default function TinderLikeApp() {
                                                     </View>
 
                                                     <View style={styles.infoRow}>
-                                                        <FontAwesome5 name="user" size={16} color="#fff"
-                                                                      style={styles.icon}/>
-                                                        <Text style={styles.infoValue}>{card.director || 'N/A'}</Text>
-                                                    </View>
-
-                                                    <View style={styles.ratingContainer}>
                                                         <FontAwesome5 name="star" size={16} color="#FFD700"/>
                                                         <Text style={styles.ratingText}>{card.rate} / 10</Text>
                                                     </View>
@@ -276,7 +265,7 @@ export default function TinderLikeApp() {
                                                 </View>
                                             )}
                                             <View style={styles.progressContainer}>
-                                                {[0, 1].map((index) => (
+                                                {([0, 1]).map((index) => (
                                                     <View
                                                         key={index}
                                                         style={[
@@ -290,47 +279,50 @@ export default function TinderLikeApp() {
                                             </View>
                                         </View>
                                     )
-                                }
-                            }}
-                            onSwiped={(index) => handleSwipedCard(index)}
-                            onSwipedLeft={(cardIndex) => {
-                                const movie_id = data[cardIndex].id;
-                                addMovieOpinion(movie_id, Opinion.DIDNT_LIKE_IT);
-                            }}
-                            onSwipedRight={(cardIndex) => {
-                                const movie_id = data[cardIndex].id;
-                                addMovieOpinion(movie_id, Opinion.LOVED_IT);
-                            }}
-                            onSwipedTop={(cardIndex) => {
-                                const movie_id = data[cardIndex].id;
-                                addMovieOpinion(movie_id, Opinion.WANT_TO_WATCH);
-                            }}
-                            stackSize={3}
-                        />
+                                }}
+                                onSwiped={(index) => handleSwipedCard(index)}
+                                onSwipedLeft={(cardIndex) => {
+                                    const movie_id = movieList[cardIndex].id;
+                                    addMovieOpinion(movie_id, Opinion.DIDNT_LIKE_IT);
+                                }}
+                                onSwipedRight={(cardIndex) => {
+                                    const movie_id = movieList[cardIndex].id;
+                                    addMovieOpinion(movie_id, Opinion.LOVED_IT);
+                                }}
+                                onSwipedTop={(cardIndex) => {
+                                    const movie_id = movieList[cardIndex].id;
+                                    addMovieOpinion(movie_id, Opinion.WANT_TO_WATCH);
+                                }}
+                                stackSize={3}
+                            />
 
-                        {/* Boutons d'action */}
-                        <View style={styles.swipeButtons}>
-                            <TouchableOpacity
-                                style={styles.dislikedButton}
-                                onPress={() => swiperRef.current?.swipeLeft()}
-                            >
-                                <FontAwesome5 name="thumbs-down" size={24} color="#fff"/>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.interestedButton}
-                                onPress={() => swiperRef.current?.swipeTop()}
-                            >
-                                <FontAwesome5 name="eye" size={24} color="#fff"/>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.lovedButton}
-                                onPress={() => swiperRef.current?.swipeRight()}
-                            >
-                                <FontAwesome5 name="thumbs-up" size={24} color="#fff"/>
-                            </TouchableOpacity>
-                        </View></>
-                    : <Text style={styles.noDataText}>No movie found. Please modify your filters.</Text>}
-            </View>
+                            {/* Action buttons */}
+                            <View style={styles.swipeButtons}>
+                                <TouchableOpacity
+                                    style={styles.dislikedButton}
+                                    onPress={() => swiperRef.current?.swipeLeft()}
+                                >
+                                    <FontAwesome5 name="thumbs-down" size={24} color="#fff"/>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.interestedButton}
+                                    onPress={() => swiperRef.current?.swipeTop()}
+                                >
+                                    <FontAwesome5 name="eye" size={24} color="#fff"/>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.lovedButton}
+                                    onPress={() => swiperRef.current?.swipeRight()}
+                                >
+                                    <FontAwesome5 name="thumbs-up" size={24} color="#fff"/>
+                                </TouchableOpacity>
+                            </View></>
+                        :
+                        <Text style={styles.noDataText}>No movie found. Please modify your filters.</Text>
+                    }
+                </View>
+            }
+
             {/* Modal for Platform Filters */}
             <Modal
                 visible={filterModalVisible}
@@ -391,6 +383,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#f8f8f8",
     },
+    contentContainer: {},
     loadingContainer: {
         flex: 1,
         justifyContent: "center",
@@ -654,7 +647,7 @@ const styles = StyleSheet.create({
     infoValue: {
         fontSize: 16,
         color: "#fff",
-        marginLeft: 10,
+        marginLeft: 5,
     },
     icon: {
         marginRight: 5,
@@ -733,16 +726,15 @@ const styles = StyleSheet.create({
         backgroundColor: "#1CE783",
     },
     platformIconContainer: {
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
         padding: 5,
         borderRadius: 10,
     },
     titleContainer: {
         display: "flex",
         flexDirection: "row",
+        justifyContent: "flex-start",
         alignItems: "center",
-        gap: 16,
-    }
+        flexWrap: "wrap",
+        gap: 10,
+    },
 });

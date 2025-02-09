@@ -56,7 +56,7 @@ export default function MyList() {
                         genres: item.genres as string[],
                         date: item.date,
                         runtime: item.runtime,
-                        director: item.director,
+                        // director: item.director,
                         trailer_key: item.trailer_key,
                     },
                 })}>

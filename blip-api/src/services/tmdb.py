@@ -1,14 +1,16 @@
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import or_
 
 import requests
 from flask import jsonify
+
+from src.app import redis_client
 from src.utils import extract_trailer_key
 from src.database.models import User, UserMovie, TmdbMovie, WatchProvider
-from src.database.types import Opinion, Provider
+from src.database.types import Opinion
 from src.database import db
 from sqlalchemy.orm import Session
 import time
@@ -68,7 +70,7 @@ def discover_movies(request):
 
 
     random_movies = fetch_random_popular_movies(n=20 - len(recommended_movies), providers=providers, locale=locale,
-                                                excluded_ids=user_interacted_ids)
+                                                excluded_ids=user_interacted_ids, user_id=user_id)
 
 
     final_movies = recommended_movies + random_movies
@@ -84,12 +86,11 @@ def discover_movies(request):
     return jsonify(final_movies), 200
 
 
-def fetch_random_popular_movies(n, excluded_ids, providers, locale='FR'):
+def fetch_random_popular_movies(n, user_id, excluded_ids, providers, locale='FR'):
     movies = []
-    page = 1
-    max_pages = 20
+    page = int(redis_client.get(f"random_page_{user_id}") or 1)
+    max_pages = page + 10
 
-    print(f"🔍 Fetching providers: {providers}")
     with Session(db.engine) as session:
         # TODO: IMPROVE case paramount +, DisneyNow
         provider_filters = [WatchProvider.provider_name.ilike(f"%{provider}%") for provider in providers]
@@ -125,6 +126,8 @@ def fetch_random_popular_movies(n, excluded_ids, providers, locale='FR'):
             if movie:
                 movies.append(movie)
         page += 1
+
+    redis_client.set(f"random_page_{user_id}", page, ex=86400)
 
     return movies
 
@@ -253,11 +256,6 @@ def get_movie(movie_id, selected_providers, locale='FR'):
         "platforms": []
     }
 
-    return enriched
-
-
-def enrich_movie_by_id(movie_id):
-    enriched = get_movie(movie_id, selected_providers=[])
     return enriched
 
 
